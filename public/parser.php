@@ -1,18 +1,19 @@
 <?php
 require_once('../vendor/autoload.php');
 
-use TestParser\Parser;
+use TestParser\Kinopoisk;
 
-$parser = new Parser('https://www.kinopoisk.ru/top/');
+$parser = new Kinopoisk('https://www.kinopoisk.ru/top/');
+
 $parser->process();
 
 if($parser->hasNoItems())
-    $parser->fail();
+    die(Kinopoisk::ERROR_NO_ITEMS);
 
 foreach ($parser->getItems() as $item) {
     $item->store();
 }
 
-$parser->success();
+die(Kinopoisk::SUCCESS);
 
 ?>
