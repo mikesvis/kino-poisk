@@ -1,6 +1,7 @@
 <?php 
 namespace TestParser\Contracts;
 
+use TestParser\Search;
 use TestParser\Contracts\Interfaces\DatabaseInterface;
 use TestParser\Contracts\Interfaces\ParserItemInterface;
 
@@ -8,7 +9,7 @@ use TestParser\Contracts\Interfaces\ParserItemInterface;
  * Класс ранилища типа Mysql
  */
 class MySQL implements DatabaseInterface
-{
+{    
     /**
      * Сервер mysql
      *
@@ -50,6 +51,13 @@ class MySQL implements DatabaseInterface
      * @var Mysqli
      */
     private $connection;
+
+    /**
+     * абсолютный путь до директории с кэш файлами
+     *
+     * @var string
+     */
+    private $cacheDirectory = '/var/www/sites/test-parser/cache';
 
     public function __construct()
     {
@@ -142,6 +150,103 @@ class MySQL implements DatabaseInterface
         // все хорошо, успешно добавили статистику к фильму
         return true;
         
+    }
+
+    /**
+     * Создание запроса к базе в рамках драйвера хранилища
+     *
+     * @param Search $search
+     * @return void
+     */
+    public function createQuery(Search $search)
+    {
+        $search->query = "SELECT raitings.position, movies.name, movies.original, movies.year, raitings.raiting, raitings.votes
+                          FROM `movies`
+                          LEFT JOIN (
+                              SELECT movie_id, position, raiting, votes
+                              FROM raitings
+                              WHERE DATE(created_at) = '".$search->date->format('Y-m-d')."'
+                              GROUP BY movie_id
+                              ORDER BY created_at DESC
+                          ) as raitings
+                          ON movies.id = raitings.movie_id
+                          WHERE raitings.position <= 10
+                          ORDER BY raitings.position
+                          LIMIT 10";
+
+        $search->queryHash = sha1($search->query);
+    }
+
+    /**
+     * Закэширован ли запрос ранее? Здесь же можно добавить проверку на старость файла (для дальнейшего расширения)
+     *
+     * @param string $query
+     * @return void
+     */
+    public function queryIsCached($queryHash)
+    {
+        
+        if(file_exists($this->cacheDirectory.'/'.$queryHash))
+            return true;
+
+        return false;
+    }
+
+    /**
+     * Выводим закэшироанные данные
+     *
+     * @param [type] $queryHash
+     * @return void
+     */
+    public function cachedResults($queryHash)
+    {
+        return file_get_contents($this->cacheDirectory.'/'.$queryHash);
+    }
+
+    /**
+     * Получения данных по запросу
+     *
+     * @param [type] $query
+     * @return string строка с результами поиска в json формате
+     */
+    public function searchResults($query)
+    {
+        $result = $this->connection->query($query);
+
+        if($result == false){
+            http_response_code(400);
+            echo 'Ошибка выполнения запроса';
+            exit();
+        }
+
+        $data['items'] = [];
+
+        while($row = mysqli_fetch_assoc($result)){
+            $data['items'][] = $row;
+        }
+
+        if(empty($data['items'])){
+            http_response_code(400);
+            echo 'Данных за эту дату нет';
+            exit();
+        }
+
+        $encoded = json_encode($data);
+
+        return $encoded;
+
+    }
+
+    /**
+     * Запись результатов в кэш
+     *
+     * @param string строка с данными для кэширования
+     * @param string кэш строки запроса
+     * @return void
+     */
+    public function cacheResults($jsonEncodedData, $queryHash)
+    {
+        file_put_contents($this->cacheDirectory.'/'.$queryHash, $jsonEncodedData);
     }
 
     /**
