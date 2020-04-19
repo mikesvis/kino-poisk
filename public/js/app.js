@@ -15,7 +15,7 @@ $(function () {
 
         // если запрос уже есть - отменяем его
         if(ajaxHandler != null) {
-            ajaxHandler.cancel();
+            ajaxHandler.abort();
         }
 
         form = $("#searchForm");

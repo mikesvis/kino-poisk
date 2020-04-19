@@ -2,7 +2,6 @@
 namespace TestParser\Contracts;
 
 use TestParser\Contracts\Interfaces\ParserInterface;
-use TestParser\Contracts\Interfaces\DatabaseInterface;
 
 /**
  * Класс парсера
