@@ -1,5 +1,6 @@
 <?php
 require_once('../vendor/autoload.php');
+$config = parse_ini_file('../config.ini');
 
 use TestParser\Kinopoisk;
 use TestParser\Contracts\MySQL;
@@ -15,7 +16,7 @@ $parser = new Parser($client);
 $parser->data->findItems();
 
 //инициализируем подключение к mysql сохраняем данные, закрываем соединение
-$storage = new MySQL();
+$storage = new MySQL($config);
 $storage->storeItems($parser->data->items);
 $storage->close();
 

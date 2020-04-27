@@ -15,35 +15,35 @@ class MySQL implements DatabaseInterface
      *
      * @var string
      */
-    private $server = 'localhost';
+    private $server;
 
     /**
      * Порт mysql
      *
      * @var string
      */
-    private $port = '3306';
+    private $port;
 
     /**
      * Имя базы данных mysql
      *
      * @var string
      */
-    private $db = 'test-parser.db';
+    private $db;
 
     /**
      * Пользователь mysql
      *
      * @var string
      */
-    private $user = 'root';
+    private $user;
 
     /**
      * Пароль mysql
      *
      * @var string
      */
-    private $password = 'password';
+    private $password;
 
     /**
      * Соединение
@@ -57,10 +57,17 @@ class MySQL implements DatabaseInterface
      *
      * @var string
      */
-    private $cacheDirectory = '/var/www/sites/test-parser/cache';
+    private $cacheDirectory;
 
-    public function __construct()
+    public function __construct($config)
     {
+        $this->server = $config['db_server'];
+        $this->port = $config['db_port'];
+        $this->db = $config['db_name'];
+        $this->user = $config['db_user'];
+        $this->password = $config['db_password'];
+        $this->cacheDirectory = $config['cache_directory'];
+
         $this->init();
     }
 
@@ -76,7 +83,7 @@ class MySQL implements DatabaseInterface
         if ($this->connection->connect_error)
             die('Ошибка соединения с базой');         
         
-        $this->connection->set_charset("utf8");
+        $this->connection->set_charset("utf8mb4");
     }
 
     /**
@@ -159,20 +166,19 @@ class MySQL implements DatabaseInterface
      * @return void
      */
     public function createQuery(Search $search)
-    {
-        $search->query = "SELECT raitings.position, movies.name, movies.original, movies.year, raitings.raiting, raitings.votes
-                          FROM `movies`
-                          LEFT JOIN (
-                              SELECT movie_id, position, raiting, votes
-                              FROM raitings
-                              WHERE DATE(created_at) = '".$search->date->format('Y-m-d')."'
-                              GROUP BY movie_id
-                              ORDER BY created_at DESC
-                          ) as raitings
-                          ON movies.id = raitings.movie_id
-                          WHERE raitings.position <= 10
-                          ORDER BY raitings.position
-                          LIMIT 10";
+    {        
+        $search->query = "  SELECT r.*, m.*
+                            FROM raitings r
+                            RIGHT JOIN movies m ON r.movie_id = m.id
+                            INNER JOIN (
+                                SELECT movie_id, max(created_at) as created_at
+                                FROM raitings
+                                WHERE date(created_at) = '".$search->date->format('Y-m-d')."' AND position <= 10
+                                GROUP BY movie_id
+                            ) r1 ON r.movie_id = r1.movie_id AND r.created_at = r1.created_at
+                            ORDER BY r.position
+                            LIMIT 10
+                        ";
 
         $search->queryHash = sha1($search->query);
     }

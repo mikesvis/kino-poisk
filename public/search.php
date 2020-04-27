@@ -1,5 +1,6 @@
 <?php
 require_once('../vendor/autoload.php');
+$config = parse_ini_file('../config.ini');
 
 use TestParser\Search;
 use TestParser\Contracts\MySQL;
@@ -8,7 +9,7 @@ use TestParser\Contracts\MySQL;
 $search = new Search($_GET);
 
 // создаем объект хранилища
-$storage = new MySQL();
+$storage = new MySQL($config);
 
 // генерируем запрос
 $storage->createQuery($search);
